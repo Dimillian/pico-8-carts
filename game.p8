@@ -19,8 +19,11 @@ player.life = 5
 player.max_life = 5
 player.spells = {}
 player.attacking = false
+player.score = 0
 player.spells = {}
 player.spells["fireball"] = fireball
+
+old_score = 0
 
 function move()
   player.moving = true
@@ -31,32 +34,81 @@ function move()
 end
 
 function draw_player()
-  spr(player.sprite, player.x, player.y)
-  if player.attacking == true or player.spells.fireball.drawing == true then
-    draw_fireball()
+  if menu.display == false then
+    spr(player.sprite, player.x, player.y)
+    if player.attacking == true or player.spells.fireball.drawing == true then
+      draw_fireball()
+    end
   end
 end
 
 function draw_fireball()
-  fireball_ = player.spells.fireball
-  if fireball_.drawing == true then
-    fireball_.position.x += fireball_.speed
-    if fireball_.position.x > screen_size then
-      fireball_.drawing = false
+  if menu.display == false then
+    fireball_ = player.spells.fireball
+    if fireball_.drawing == true then
+      fireball_.position.x += fireball_.speed
+      if fireball_.position.x > screen_size then
+        fireball_.drawing = false
+      end
+    else
+      fireball_.drawing = true
+      fireball_.position.x = player.x + 4
+      fireball_.position.y = player.y
     end
-  else
-    fireball_.drawing = true
-    fireball_.position.x = player.x + 4
-    fireball_.position.y = player.y
+    spr(fireball_.sprite, fireball_.position.x, fireball_.position.y)
   end
-  spr(fireball_.sprite, fireball_.position.x, fireball_.position.y)
 end
 
+function check_score()
+  if player.score != 0 and old_score != player.score and player.score > old_score and player.score % 2 == 0 then
+    foe.speed += 0.5
+    old_score = player.score
+  end
+end
+
+-- enemies
+foe = {}
+foe.sprite = 16
+foe.life = 1
+foe.speed = 0.1
+foe.drawing = false
+foe.position = {x = 0, y = 0}
+
+function draw_foes()
+  if menu.display == false then
+      if foe.drawing == false then
+      foe.drawing = true
+      foe.position.x = screen_size - 10
+      foe.position.y = rnd(128)
+    else
+      foe.position.x -= foe.speed
+      if foe.position.x <= 0 then
+        player.score -= 1
+        foe.drawing = false
+      end
+    end
+    spr(foe.sprite, foe.position.x, foe.position.y)
+  end
+end
+
+-- combat
+function is_fireball_foe()
+  fireball_ = player.spells.fireball
+  fip = fireball_.position
+  fp = foe.position
+  if fip.x >= fp.x and (fip.y < fp.y + 2 and fip.y > fp.y - 2) then
+    foe.drawing = false
+    fireball_.drawing = false
+    player.attacking = false
+    player.score += 1
+  end
+end
 
 -- menu
 menu = {}
 menu.display = false
-menu.items = {"character", "inventory", "spells"}
+menu.items = {"add speed", "add attack", "+TBD"}
+menu.selected = 1
 
 function togglemenu()
   if menu.display == true then
@@ -66,8 +118,23 @@ function togglemenu()
   end
 end
 
-function print_menu_item(item)
-  print("-> " .. item)
+function draw_menu()
+  if menu.display == true then
+    for i, item in pairs(menu.items) do
+      color = 7
+      if i == menu.selected then
+        color = 2
+      end
+      print("-> " .. item, 0, (i + 1) * 6, color)
+    end
+  end
+end
+
+function select_menu()
+  if menu.selected == 1 and player.score >= 2 then
+    player.score -= 2
+    player.speed += 2
+  end
 end
 
 -- user interface
@@ -76,12 +143,13 @@ ui_width = screen_size
 ui_height= 6
 function draw_ui()
   line(0, ui_height, ui_width, ui_height, 7)
-  print("life: " .. player.life .. "/" .. player.max_life)
+  print("life: " .. player.life .. "/" .. player.max_life .. " score: " .. player.score)
 end
 
 -- engine
 function _update()
   player.moving = false
+  check_score()
   if btnp(4) then
     togglemenu()
   end
@@ -102,10 +170,21 @@ function _update()
       player.y += player.speed
       move()
     end
-    if btn(5) then
+    if btnp(5) then
       player.attacking = true
     else
       player.attacking = false
+    end
+  end
+  if menu.display == true then
+    if btnp(5) then
+      select_menu()
+    end
+    if btnp(2) and menu.selected > 1 then
+      menu.selected -= 1
+    end
+    if btnp(3) and menu.selected <= 2 then
+      menu.selected += 1
     end
   end
   if not player.moving then
@@ -117,9 +196,9 @@ function _draw()
   cls()
   draw_ui()
   draw_player()
-  if menu.display == true then
-    foreach(menu.items, print_menu_item)
-  end
+  draw_foes()
+  draw_menu()
+  is_fireball_foe()
 end
 
 
@@ -132,6 +211,14 @@ fbbbbf00fbbbbf00fbbbbf00aa888889000000000000000000000000000000000000000000000000
 05555000055550000555500009a88a9a000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
 050050000500c0000c00500000a98a00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
 0c00c0000c0000000000c000000aaa00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+08008800000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+80880088000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+00a00a00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+00a00a00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+70070070000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+07707707000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+00888880000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
 __map__
 0000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
 0000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
