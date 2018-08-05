@@ -24,6 +24,7 @@ player.spells = {}
 player.spells["fireball"] = fireball
 
 old_score = 0
+gameover = false
 
 function move()
   player.moving = true
@@ -60,8 +61,11 @@ function draw_fireball()
 end
 
 function check_score()
+  if player.score < 0 or player.life <= 0 then
+    gameover = true
+  end
   if player.score != 0 and old_score != player.score and player.score > old_score and player.score % 2 == 0 then
-    foe.speed += 0.5
+    foe.speed += 0.3
     old_score = player.score
   end
 end
@@ -77,9 +81,12 @@ foe.position = {x = 0, y = 0}
 function draw_foes()
   if menu.display == false then
       if foe.drawing == false then
-      foe.drawing = true
-      foe.position.x = screen_size - 10
-      foe.position.y = rnd(128)
+        foe.drawing = true
+        foe.position.x = screen_size - 10
+        foe.position.y = rnd(128)
+        if foe.position.y < ui_height then
+          foe.position.y = ui_height + 2
+        end
     else
       foe.position.x -= foe.speed
       if foe.position.x <= 0 then
@@ -96,7 +103,7 @@ function is_fireball_foe()
   fireball_ = player.spells.fireball
   fip = fireball_.position
   fp = foe.position
-  if fip.x >= fp.x and (fip.y < fp.y + 2 and fip.y > fp.y - 2) then
+  if fip.x >= fp.x and (fip.y < fp.y + 4 and fip.y > fp.y - 4) then
     foe.drawing = false
     fireball_.drawing = false
     player.attacking = false
@@ -104,13 +111,23 @@ function is_fireball_foe()
   end
 end
 
+function is_foe_player()
+  fp = foe.position
+  if (player.x < fp.x + 2 and player.x > fp.x - 2) and (player.y < fp.y + 2 and player.y > fp.y - 2) then
+    foe.drawing = false
+    player.life -= 1
+    player.score += 1
+  end
+end
+
 -- menu
 menu = {}
 menu.display = false
-menu.items = {"add speed", "add attack", "+TBD"}
+menu.items = {"+ moving speed", "+ attack speed", "+TBD"}
 menu.selected = 1
 
 function togglemenu()
+  menu.selected = 1
   if menu.display == true then
     menu.display = false
   else
@@ -133,7 +150,13 @@ end
 function select_menu()
   if menu.selected == 1 and player.score >= 2 then
     player.score -= 2
-    player.speed += 2
+    old_score = player.score
+    player.speed += 0.5
+  end
+  if menu.selected == 2 and player.score >= 2 then
+    player.score -= 2
+    old_score = player.score
+    player.spells.fireball.speed += 0.5
   end
 end
 
@@ -146,10 +169,28 @@ function draw_ui()
   print("life: " .. player.life .. "/" .. player.max_life .. " score: " .. player.score)
 end
 
+function print_centered(str)
+  print(str, 64 - (#str * 2), 60) 
+end
+
+function reset()
+  player.score = 1
+  player.spells.fireball.drawing = false
+  player.spells.fireball.speed = 3
+  player.attacking = false
+  player.life = 5
+  player.speed = 2
+  foe.drawing = false
+  foe.speed = 0.1
+  gameover = false
+end
+
 -- engine
 function _update()
   player.moving = false
   check_score()
+  is_fireball_foe()
+  is_foe_player()
   if btnp(4) then
     togglemenu()
   end
@@ -187,6 +228,9 @@ function _update()
       menu.selected += 1
     end
   end
+  if gameover == true and (btnp(5) or btnp(4)) then
+    reset()
+  end
   if not player.moving then
     player.sprite = 0
   end
@@ -194,11 +238,14 @@ end
 
 function _draw()
   cls()
-  draw_ui()
-  draw_player()
-  draw_foes()
-  draw_menu()
-  is_fireball_foe()
+  if gameover == false then
+    draw_ui()
+    draw_player()
+    draw_foes()
+    draw_menu()
+  else
+    print_centered("game over!")
+  end
 end
 
 
