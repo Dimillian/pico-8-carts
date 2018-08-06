@@ -25,6 +25,8 @@ player.spells["fireball"] = fireball
 
 old_score = 0
 gameover = false
+last_time = time()
+display_damage = false
 
 function move()
   player.moving = true
@@ -68,6 +70,9 @@ function check_score()
   if player.score != 0 and old_score != player.score and player.score > old_score and player.score % 2 == 0 then
     foe.speed += 0.3
     old_score = player.score
+  elseif player.score != 0 and old_score != player.screen_size and player.score > old_score and player.score % 5 == 0 then
+    foe.max_life += 1
+    old_score = player.score
   end
 end
 
@@ -77,6 +82,7 @@ foe.sprite = 16
 foe.sprite_death_start = 17
 foe.sprite_death_stop = 28
 foe.life = 1
+foe.max_life = 1
 foe.speed = 0.1
 foe.drawing = false
 foe.position = {x = 0, y = 0}
@@ -89,9 +95,11 @@ function draw_foes()
         foe.position.y = rnd(128)
         if foe.position.y < ui_height then
           foe.position.y = ui_height + 2
+        elseif foe.position.y > screen_size - 2 then
+          foe.position.y = screen_size - 5
         end
     else
-      if foe.life == 0 then
+      if foe.life <= 0 then
         if foe.sprite == 16 then
           foe.sprite = foe.sprite_death_start
         end
@@ -99,21 +107,28 @@ function draw_foes()
           foe.sprite += 1
         end
         if foe.sprite == foe.sprite_death_stop then
-          foe.drawing = false
           player.score += 1
-          foe.life = 1
-          foe.sprite = 16
+          reset_foe()
         end
       else
         foe.position.x -= foe.speed
         if foe.position.x <= 0 then
           player.score -= 1
-          foe.drawing = false
+          display_damage = true 
+          reset_foe()
           sfx(4)
         end
       end
     end
+    rectfill(foe.position.x - 2, foe.position.y - 8, foe.position.x + 11, foe.position.y - 4, 11)
+    print(foe.life .. "/" .. foe.max_life, foe.position.x, foe.position.y - 8, 7)
     spr(foe.sprite, foe.position.x, foe.position.y)
+  end
+
+  function reset_foe()
+    foe.drawing = false
+    foe.life = foe.max_life
+    foe.sprite = 16
   end
 end
 
@@ -133,9 +148,9 @@ end
 function is_foe_player()
   fp = foe.position
   if (player.x < fp.x + 2 and player.x > fp.x - 2) and (player.y < fp.y + 2 and player.y > fp.y - 2) then
-    foe.drawing = false
+    reset_foe()
     player.life -= 1
-    player.score += 1
+    display_damage = true
     sfx(4)
   end
 end
@@ -143,7 +158,7 @@ end
 -- menu
 menu = {}
 menu.display = false
-menu.items = {"+ moving speed", "+ attack speed", "+tbd"}
+menu.items = {"+ moving speed", "+ attack speed", "+ tbd"}
 menu.selected = 1
 
 function togglemenu()
@@ -188,7 +203,14 @@ ui_width = screen_size
 ui_height= 6
 function draw_ui()
   line(0, ui_height, ui_width, ui_height, 7)
-  print("life: " .. player.life .. "/" .. player.max_life .. " score: " .. player.score)
+  if display_damage == true then
+    line(0, ui_height, 0, screen_size, 8)
+    display_damage = false
+  else
+    line(0, ui_height, 0, screen_size, 7)
+  end
+  line(0, screen_size - 1, ui_width, screen_size - 1, 7)
+  print("life: " .. player.life .. "/" .. player.max_life .. " score: " .. player.score .. " time: " .. flr(last_time))
 end
 
 function print_centered(str)
@@ -205,10 +227,16 @@ function reset()
   foe.drawing = false
   foe.speed = 0.1
   gameover = false
+  global_timer = 0
 end
 
 -- engine
+function _init()
+  cls()
+end
+
 function _update()
+  last_time = time()
   player.moving = false
   check_score()
   is_fireball_foe()
